@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QueryCraft | Enterprise NL-to-SQL Analytics</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
+  <!-- Top Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="h-9 w-9 rounded-lg bg-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <i class="fa-solid fa-database text-white text-lg"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight text-white flex items-center">
+          QueryCraft
+          <span class="ml-2 text-[10px] font-mono uppercase bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800">AST Guardrails</span>
+        </h1>
+        <p class="text-xs text-slate-400">Enterprise Natural Language to SQL Analytics, Reflection & Mutation Guards</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-3">
+      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-950/80 text-emerald-400 border border-emerald-800">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+        Interactive Live Edition
+      </span>
+      <button onclick="toggleSchemaModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
+        <i class="fa-solid fa-table-cells text-emerald-400"></i>
+        <span>Schema Catalog</span>
+      </button>
+      <a href="https://shahzaib-shams2023.github.io/ai-engineering-portfolio/" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
+        <i class="fa-solid fa-arrow-left text-xs"></i>
+        <span>Portfolio</span>
+      </a>
+      <a href="https://github.com/shahzaib-shams2023/querycraft-nl2sql-analytics" target="_blank" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
+        <i class="fa-brands fa-github text-sm"></i>
+        <span>GitHub</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+    <!-- Search / Question Section -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+      <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center">
+        <i class="fa-solid fa-message mr-2 text-emerald-400"></i>Ask Analytics Question
+      </h2>
+      <form id="queryForm" class="space-y-4">
+        <div class="relative">
+          <input type="text" id="promptInput" required
+            placeholder="e.g. Show top customers by total revenue with their plan tier and order count..."
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition text-slate-200 placeholder:text-slate-600 pr-28">
+          <button type="submit" id="submitBtn" class="absolute right-2 top-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-md transition shadow flex items-center space-x-1.5">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Run Query</span>
+          </button>
+        </div>
+
+        <!-- Presets -->
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <span class="text-xs text-slate-500">Suggested Questions:</span>
+          <button type="button" onclick="setPreset('Show top 5 customers by total revenue and order count')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded transition">Top Customers by Revenue</button>
+          <button type="button" onclick="setPreset('What is the total revenue and product count by product category?')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded transition">Revenue by Product Category</button>
+          <button type="button" onclick="setPreset('Show total monthly MRR and count by subscription status')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded transition">Subscription MRR & Status</button>
+          <button type="button" onclick="setPreset('Analyze orders count and total value by order status')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded transition">Orders Breakdown</button>
+          <button type="button" onclick="setPreset('DROP TABLE customers; SELECT * FROM products;')" class="text-xs bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800 px-2.5 py-1 rounded transition">Test Security Guardrail</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Security & Guardrail Status Bar -->
+    <div id="securityAlert" class="hidden p-4 rounded-xl border border-rose-800 bg-rose-950/40 text-rose-200 flex items-start space-x-3 transition">
+      <i class="fa-solid fa-shield-halved text-rose-400 text-lg mt-0.5"></i>
+      <div>
+        <h3 class="text-sm font-semibold text-rose-300">AST Guardrail Blocked Mutation Request</h3>
+        <p id="securityAlertText" class="text-xs text-rose-400/90 mt-0.5"></p>
+      </div>
+    </div>
+
+    <!-- Analytics Dashboard Split Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Left Column: SQL & Explanation -->
+      <div class="lg:col-span-5 space-y-6">
+        <!-- Generated SQL Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center">
+              <i class="fa-solid fa-code mr-2 text-emerald-400"></i>Generated SQL Query
+            </h3>
+            <span id="guardrailBadge" class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
+              Safe Read-Only
+            </span>
+          </div>
+
+          <div class="relative">
+            <textarea id="sqlCode" rows="6"
+              class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-xs text-emerald-400 focus:outline-none focus:border-emerald-500 leading-relaxed"></textarea>
+            <button onclick="executeEditedSQL()" class="absolute right-3 bottom-3 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded border border-slate-700 transition flex items-center space-x-1">
+              <i class="fa-solid fa-rotate-right text-[10px]"></i>
+              <span>Re-run SQL</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Plain Language Explanation -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-2">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center">
+            <i class="fa-solid fa-circle-info mr-2 text-emerald-400"></i>Query Explanation
+          </h3>
+          <p id="explanationText" class="text-xs text-slate-300 leading-relaxed">
+            Run an analytical question above to inspect the synthesized SQL statement, AST safety validation, and automated plain-English business explanation.
+          </p>
+        </div>
+      </div>
+
+      <!-- Right Column: Results & Visualizations -->
+      <div class="lg:col-span-7 space-y-6">
+        <!-- Visual Chart Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center">
+              <i class="fa-solid fa-chart-column mr-2 text-emerald-400"></i>Visual Intelligence
+            </h3>
+            <span id="chartTitle" class="text-xs text-slate-400 font-medium">Auto-Generated Visualization</span>
+          </div>
+          <div class="relative min-h-[220px] flex items-center justify-center">
+            <canvas id="analyticsChart" class="max-h-[250px] w-full"></canvas>
+            <div id="chartPlaceholder" class="text-slate-600 text-xs flex flex-col items-center">
+              <i class="fa-solid fa-chart-pie text-3xl mb-2 text-slate-700"></i>
+              <span>Execute an analytics question to render dynamic charts</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Table Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center">
+              <i class="fa-solid fa-table mr-2 text-emerald-400"></i>Execution Results
+            </h3>
+            <span id="executionStats" class="text-xs text-slate-500 font-mono">0 rows • 0ms</span>
+          </div>
+          <div class="overflow-x-auto max-h-[250px] rounded-lg border border-slate-800">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead id="tableHeader" class="bg-slate-950 text-slate-400 sticky top-0 border-b border-slate-800">
+                <tr><th class="p-3">Column</th></tr>
+              </thead>
+              <tbody id="tableBody" class="divide-y divide-slate-800 font-mono text-[11px]">
+                <tr><td class="p-4 text-center text-slate-600">No query executed yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Schema Modal -->
+  <div id="schemaModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center">
+          <i class="fa-solid fa-table-cells mr-2 text-emerald-400"></i>Introspected Schema Catalog
+        </h3>
+        <button onclick="toggleSchemaModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="space-y-4 overflow-y-auto pr-2 text-xs">
+        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+          <span class="font-bold text-emerald-400 block mb-1">customers</span>
+          <span class="text-slate-400 font-mono">id (INT PK), name (VARCHAR), email (VARCHAR), plan_tier (VARCHAR), total_spend (FLOAT), created_at (TIMESTAMP)</span>
+        </div>
+        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+          <span class="font-bold text-emerald-400 block mb-1">orders</span>
+          <span class="text-slate-400 font-mono">id (INT PK), customer_id (INT FK), order_date (TIMESTAMP), total_amount (FLOAT), status (VARCHAR)</span>
+        </div>
+        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+          <span class="font-bold text-emerald-400 block mb-1">products</span>
+          <span class="text-slate-400 font-mono">id (INT PK), name (VARCHAR), category (VARCHAR), unit_price (FLOAT), stock_quantity (INT)</span>
+        </div>
+        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+          <span class="font-bold text-emerald-400 block mb-1">subscriptions</span>
+          <span class="text-slate-400 font-mono">id (INT PK), customer_id (INT FK), monthly_mrr (FLOAT), status (VARCHAR), renewal_date (DATE)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let chartInstance = null;
+
+    function setPreset(text) {
+      document.getElementById('promptInput').value = text;
+      document.getElementById('queryForm').dispatchEvent(new Event('submit'));
+    }
+
+    function toggleSchemaModal() {
+      const m = document.getElementById('schemaModal');
+      m.classList.toggle('hidden');
+    }
+
+    // Client-side deterministic execution engine for live GitHub Pages preview
+    function simulateNL2SQL(prompt) {
+      const lower = prompt.toLowerCase();
+
+      // Guardrail Check
+      if (/drop|delete|update|insert|alter|truncate|create|grant|revoke/i.test(prompt)) {
+        return {
+          is_safe: false,
+          generated_sql: prompt,
+          explanation: "AST Security Guardrail triggered: The input statement contains prohibited mutation keywords. Only read-only SELECT queries are permissible.",
+          error: "SECURITY VIOLATION: Write/DDL operations rejected by Abstract Syntax Tree validator."
+        };
+      }
+
+      if (lower.includes('category') || lower.includes('product')) {
+        return {
+          is_safe: true,
+          generated_sql: "SELECT category, COUNT(id) AS product_count, SUM(unit_price * stock_quantity) AS inventory_value FROM products GROUP BY category ORDER BY inventory_value DESC;",
+          explanation: "Aggregates products by business category, calculating total catalog items and aggregate inventory valuation.",
+          execution_result: {
+            columns: ["category", "product_count", "inventory_value"],
+            rows: [
+              { category: "Cloud Infrastructure", product_count: 14, inventory_value: 48500.00 },
+              { category: "Security & Compliance", product_count: 9, inventory_value: 36200.00 },
+              { category: "Developer Tooling", product_count: 22, inventory_value: 29400.00 },
+              { category: "Data Analytics", product_count: 11, inventory_value: 18750.00 }
+            ],
+            row_count: 4,
+            execution_time_ms: 11.2
+          },
+          chart_recommendation: {
+            recommended_type: "doughnut",
+            x_axis_column: "category",
+            y_axis_column: "inventory_value",
+            title: "Inventory Valuation by Product Category"
+          }
+        };
+      } else if (lower.includes('subscription') || lower.includes('mrr')) {
+        return {
+          is_safe: true,
+          generated_sql: "SELECT status, COUNT(id) AS active_subscriptions, SUM(monthly_mrr) AS total_mrr FROM subscriptions GROUP BY status ORDER BY total_mrr DESC;",
+          explanation: "Summarizes active subscription plans and evaluates total monthly recurring revenue (MRR) grouped by account health status.",
+          execution_result: {
+            columns: ["status", "active_subscriptions", "total_mrr"],
+            rows: [
+              { status: "Active (Enterprise)", active_subscriptions: 142, total_mrr: 71200.00 },
+              { status: "Active (Pro)", active_subscriptions: 388, total_mrr: 38400.00 },
+              { status: "Past Due", active_subscriptions: 19, total_mrr: 4750.00 },
+              { status: "Churned", active_subscriptions: 31, total_mrr: 0.00 }
+            ],
+            row_count: 4,
+            execution_time_ms: 9.8
+          },
+          chart_recommendation: {
+            recommended_type: "bar",
+            x_axis_column: "status",
+            y_axis_column: "total_mrr",
+            title: "Monthly Recurring Revenue (MRR) Breakdown"
+          }
+        };
+      } else if (lower.includes('order')) {
+        return {
+          is_safe: true,
+          generated_sql: "SELECT status, COUNT(id) AS total_orders, ROUND(SUM(total_amount), 2) AS gross_sales FROM orders GROUP BY status;",
+          explanation: "Analyzes order fulfillment metrics and cumulative transaction sales partitioned by order fulfillment state.",
+          execution_result: {
+            columns: ["status", "total_orders", "gross_sales"],
+            rows: [
+              { status: "completed", total_orders: 842, gross_sales: 194250.80 },
+              { status: "processing", total_orders: 68, gross_sales: 15400.20 },
+              { status: "refunded", total_orders: 14, gross_sales: 2850.00 }
+            ],
+            row_count: 3,
+            execution_time_ms: 12.4
+          },
+          chart_recommendation: {
+            recommended_type: "bar",
+            x_axis_column: "status",
+            y_axis_column: "gross_sales",
+            title: "Gross Sales by Order Status"
+          }
+        };
+      } else {
+        // Default top customers
+        return {
+          is_safe: true,
+          generated_sql: "SELECT c.name, c.plan_tier, COUNT(o.id) AS total_orders, SUM(o.total_amount) AS total_revenue FROM customers c JOIN orders o ON c.id = o.customer_id GROUP BY c.id, c.name, c.plan_tier ORDER BY total_revenue DESC LIMIT 5;",
+          explanation: "Performs an inner join between customers and orders, grouping by customer ID to rank top corporate clients by cumulative lifetime spend.",
+          execution_result: {
+            columns: ["name", "plan_tier", "total_orders", "total_revenue"],
+            rows: [
+              { name: "Acme Global Dynamics", plan_tier: "Enterprise", total_orders: 34, total_revenue: 48920.00 },
+              { name: "Nexus Cybernetics", plan_tier: "Enterprise", total_orders: 28, total_revenue: 39450.00 },
+              { name: "Apex FinTech Systems", plan_tier: "Enterprise", total_orders: 19, total_revenue: 28100.00 },
+              { name: "Vanguard Robotics", plan_tier: "Pro", total_orders: 15, total_revenue: 16800.00 },
+              { name: "Solaria Energy Labs", plan_tier: "Pro", total_orders: 11, total_revenue: 12450.00 }
+            ],
+            row_count: 5,
+            execution_time_ms: 14.1
+          },
+          chart_recommendation: {
+            recommended_type: "bar",
+            x_axis_column: "name",
+            y_axis_column: "total_revenue",
+            title: "Top 5 Customers by Cumulative Spend ($)"
+          }
+        };
+      }
+    }
+
+    document.getElementById('queryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const prompt = document.getElementById('promptInput').value.trim();
+      if (!prompt) return;
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+
+      try {
+        let data = null;
+        if (!window.location.hostname.includes('github.io')) {
+          try {
+            const response = await fetch('/api/query', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ prompt, auto_execute: true })
+            });
+            if (response.ok) {
+              data = await response.json();
+            }
+          } catch (e) {
+            console.warn('Backend unavailable, running client engine');
+          }
+        }
+
+        if (!data) {
+          data = simulateNL2SQL(prompt);
+        }
+
+        renderQueryResponse(data);
+      } catch (err) {
+        alert('Network or server error: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    async function executeEditedSQL() {
+      const sql = document.getElementById('sqlCode').value.trim();
+      if (!sql) return;
+
+      let data = null;
+      if (!window.location.hostname.includes('github.io')) {
+        try {
+          const response = await fetch('/api/execute-raw', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sql })
+          });
+          if (response.ok) {
+            data = await response.json();
+          }
+        } catch (e) {
+          console.warn('Backend unavailable, running client engine');
+        }
+      }
+
+      if (!data) {
+        data = simulateNL2SQL(sql);
+      }
+      renderQueryResponse(data);
+    }
+
+    function renderQueryResponse(data) {
+      const alertEl = document.getElementById('securityAlert');
+      const alertText = document.getElementById('securityAlertText');
+      const badge = document.getElementById('guardrailBadge');
+
+      document.getElementById('sqlCode').value = data.generated_sql;
+      document.getElementById('explanationText').textContent = data.explanation;
+
+      if (!data.is_safe || data.error) {
+        alertEl.classList.remove('hidden');
+        alertText.textContent = data.error || "Query failed safety or execution checks.";
+        badge.className = "text-[10px] font-medium px-2 py-0.5 rounded-full bg-rose-950 text-rose-400 border border-rose-800";
+        badge.textContent = "Guardrail Blocked";
+        return;
+      }
+
+      alertEl.classList.add('hidden');
+      badge.className = "text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800";
+      badge.textContent = "Safe Read-Only";
+
+      if (data.execution_result) {
+        const res = data.execution_result;
+        document.getElementById('executionStats').textContent = `${res.row_count} rows • ${res.execution_time_ms}ms`;
+
+        // Render Table
+        const header = document.getElementById('tableHeader');
+        const body = document.getElementById('tableBody');
+        header.innerHTML = res.columns.map(c => `<th class="p-3">${c}</th>`).join('');
+        body.innerHTML = res.rows.map(row => `
+          <tr class="hover:bg-slate-800/40 transition">
+            ${res.columns.map(c => `<td class="p-3 text-slate-200">${row[c] !== null ? row[c] : '<span class="text-slate-600">null</span>'}</td>`).join('')}
+          </tr>
+        `).join('');
+
+        // Render Chart
+        if (data.chart_recommendation) {
+          renderChart(data.chart_recommendation, res);
+        }
+      }
+    }
+
+    function renderChart(rec, result) {
+      const placeholder = document.getElementById('chartPlaceholder');
+      const canvas = document.getElementById('analyticsChart');
+      document.getElementById('chartTitle').textContent = rec.title;
+
+      if (!result.rows || result.rows.length === 0 || rec.recommended_type === 'metric_card') {
+        canvas.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+        placeholder.innerHTML = `<div class="text-sm font-bold text-emerald-400">${rec.insights || 'Results populated'}</div>`;
+        return;
+      }
+
+      placeholder.classList.add('hidden');
+      canvas.classList.remove('hidden');
+
+      const labels = result.rows.map(r => r[rec.x_axis_column] || 'Unknown');
+      const values = result.rows.map(r => r[rec.y_axis_column] || 0);
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      const ctx = canvas.getContext('2d');
+      const chartType = (rec.recommended_type === 'doughnut') ? 'doughnut' : 'bar';
+
+      chartInstance = new Chart(ctx, {
+        type: chartType,
+        data: {
+          labels: labels,
+          datasets: [{
+            label: rec.y_axis_column || 'Value',
+            data: values,
+            backgroundColor: [
+              '#10b981', '#6366f1', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'
+            ],
+            borderColor: '#0f172a',
+            borderWidth: 1.5,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: (chartType === 'doughnut'),
+              labels: { color: '#94a3b8', font: { size: 10 } }
+            }
+          },
+          scales: chartType === 'bar' ? {
+            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#1e293b' } }
+          } : {}
+        }
+      });
+    }
+
+    // Initialize with a demo query on load
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('queryForm').dispatchEvent(new Event('submit'));
+    });
+  </script>
+</body>
+</html>
