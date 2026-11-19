@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QueryCraft | Enterprise NL-to-SQL Analytics</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
+  <!-- Top Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="h-9 w-9 rounded-lg bg-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <i class="fa-solid fa-database text-white text-lg"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight text-white">QueryCraft</h1>
+        <p class="text-xs text-slate-400">Enterprise Natural Language to SQL Analytics & Guardrails</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-3">
+      <button onclick="toggleSchemaModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
+        <i class="fa-solid fa-table-cells text-emerald-400"></i>
+        <span>Schema Catalog</span>
+      </button>
+      <a href="/docs" target="_blank" class="text-xs text-slate-400 hover:text-emerald-400 transition-colors">
+        <i class="fa-solid fa-code mr-1"></i>API Docs
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+    <!-- Search / Question Section -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+      <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center">
+        <i class="fa-solid fa-message mr-2 text-emerald-400"></i>Ask Analytics Question
+      </h2>
+      <form id="queryForm" class="space-y-4">
+        <div class="relative">
+          <input type="text" id="promptInput" required
+            placeholder="e.g. Show top customers by total revenue with their plan tier and order count..."
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition text-slate-200 placeholder:text-slate-600 pr-28">
+          <button type="submit" id="submitBtn" class="absolute right-2 top-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-md transition shadow flex items-center space-x-1.5">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Run Query</span>
+          </button>
+        </div>
+
+        <!-- Presets -->
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <span class="text-xs text-slate-500">Suggested Questions:</span>
+          <button type="button" onclick="setPreset('Show top 5 customers by total revenue and order count')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded transition">Top Customers by Revenue</button>
+          <button type="button" onclick="setPreset('What is the total revenue and product count by product category?')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded transition">Revenue by Product Category</button>
+          <button type="button" onclick="setPreset('Show total monthly MRR and count by subscription status')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded transition">Subscription MRR & Status</button>
+          <button type="button" onclick="setPreset('Analyze orders count and total value by order status')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded transition">Orders Breakdown</button>
+          <button type="button" onclick="setPreset('DROP TABLE customers; SELECT * FROM products;')" class="text-xs bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800 px-2.5 py-1 rounded transition">Test Security Guardrail</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Alert / Security Notification -->
+    <div id="securityAlert" class="hidden p-4 rounded-xl border border-rose-800 bg-rose-950/60 text-rose-200 text-xs flex items-center space-x-3">
+      <i class="fa-solid fa-triangle-exclamation text-rose-400 text-base"></i>
+      <span id="securityAlertText">Security violation detected.</span>
+    </div>
+
+    <!-- Analysis & SQL Output Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Left: SQL & Explanation -->
+      <div class="lg:col-span-5 space-y-4">
+        <!-- Generated SQL Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center">
+              <i class="fa-solid fa-terminal mr-2 text-emerald-400"></i>Generated SQL
+            </span>
+            <span id="guardrailBadge" class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Pending</span>
+          </div>
+          <div class="relative mt-2">
+            <textarea id="sqlCode" rows="6" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-xs text-emerald-400 focus:outline-none focus:border-emerald-500 leading-relaxed"></textarea>
+            <div class="flex justify-end space-x-2 mt-2">
+              <button onclick="executeEditedSQL()" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded transition border border-slate-700 flex items-center space-x-1">
+                <i class="fa-solid fa-play text-xs text-emerald-400"></i>
+                <span>Execute Modified</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Explanation Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 flex items-center">
+            <i class="fa-solid fa-lightbulb mr-2 text-amber-400"></i>Plain-English Query Explanation
+          </h3>
+          <p id="explanationText" class="text-xs text-slate-300 leading-relaxed">
+            Enter a prompt above to generate SQL and receive an automated logic breakdown.
+          </p>
+        </div>
+      </div>
+
+      <!-- Right: Chart & Data Visualizer -->
+      <div class="lg:col-span-7 space-y-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col min-h-[350px]">
+          <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center">
+              <i class="fa-solid fa-chart-simple mr-2 text-indigo-400"></i><span id="chartTitle">Data Visualization</span>
+            </span>
+            <span id="executionStats" class="text-xs text-slate-500">0 rows • 0.0ms</span>
+          </div>
+
+          <div class="flex-1 flex items-center justify-center" id="chartWrapper">
+            <canvas id="analyticsChart" class="max-h-64"></canvas>
+            <div id="chartPlaceholder" class="text-center text-slate-600 text-xs py-12">
+              <i class="fa-solid fa-chart-pie text-3xl mb-2 text-slate-700"></i>
+              <p>Visualization renders here automatically when query executes.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Table Card -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl overflow-hidden">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center">
+          <i class="fa-solid fa-table mr-2 text-emerald-400"></i>Query Results Table
+        </h3>
+      </div>
+      <div class="overflow-x-auto max-h-72">
+        <table id="dataTable" class="w-full text-left text-xs text-slate-300 border-collapse">
+          <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800 sticky top-0">
+            <tr id="tableHeader">
+              <th class="p-3">Results will appear here</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-slate-800/60 font-mono">
+            <tr>
+              <td class="p-4 text-center text-slate-600">No query executed yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Schema Modal -->
+  <div id="schemaModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-6 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-database text-emerald-400"></i>
+          <h3 class="text-base font-bold text-white">Database Schema Catalog</h3>
+        </div>
+        <button onclick="toggleSchemaModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <div id="schemaModalBody" class="flex-1 overflow-y-auto space-y-4 pr-2 text-xs">
+        <div class="text-slate-500">Loading catalog...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let chartInstance = null;
+
+    function setPreset(text) {
+      document.getElementById('promptInput').value = text;
+    }
+
+    function toggleSchemaModal() {
+      const modal = document.getElementById('schemaModal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        loadSchemaCatalog();
+      }
+    }
+
+    async function loadSchemaCatalog() {
+      const container = document.getElementById('schemaModalBody');
+      try {
+        const res = await fetch('/api/schema');
+        const schema = await res.json();
+        container.innerHTML = Object.entries(schema).map(([tableName, meta]) => `
+          <div class="border border-slate-800 bg-slate-950 rounded-lg p-3">
+            <div class="font-bold text-emerald-400 text-sm mb-1">${tableName}</div>
+            <div class="text-[11px] text-slate-400 mb-2">Columns: ${meta.columns.map(c => `<span class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">${c.name} (${c.type})</span>`).join(' ')}</div>
+            ${meta.foreign_keys.length ? `<div class="text-[10px] text-indigo-400">Foreign Keys: ${meta.foreign_keys.map(fk => `${fk.constrained_columns} -> ${fk.referred_table}`).join(', ')}</div>` : ''}
+          </div>
+        `).join('');
+      } catch (e) {
+        container.innerHTML = '<div class="text-rose-400">Failed to load schema catalog.</div>';
+      }
+    }
+
+    document.getElementById('queryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const prompt = document.getElementById('promptInput').value.trim();
+      if (!prompt) return;
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+
+      try {
+        const response = await fetch('/api/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, auto_execute: true })
+        });
+        const data = await response.json();
+        renderQueryResponse(data);
+      } catch (err) {
+        alert('Network or server error: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    async function executeEditedSQL() {
+      const sql = document.getElementById('sqlCode').value.trim();
+      if (!sql) return;
+
+      try {
+        const response = await fetch('/api/execute-raw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql })
+        });
+        const data = await response.json();
+        renderQueryResponse(data);
+      } catch (err) {
+        alert('Execution failed: ' + err.message);
+      }
+    }
+
+    function renderQueryResponse(data) {
+      const alertEl = document.getElementById('securityAlert');
+      const alertText = document.getElementById('securityAlertText');
+      const badge = document.getElementById('guardrailBadge');
+
+      document.getElementById('sqlCode').value = data.generated_sql;
+      document.getElementById('explanationText').textContent = data.explanation;
+
+      if (!data.is_safe || data.error) {
+        alertEl.classList.remove('hidden');
+        alertText.textContent = data.error || "Query failed safety or execution checks.";
+        badge.className = "text-[10px] font-medium px-2 py-0.5 rounded-full bg-rose-950 text-rose-400 border border-rose-800";
+        badge.textContent = "Guardrail Blocked";
+        return;
+      }
+
+      alertEl.classList.add('hidden');
+      badge.className = "text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800";
+      badge.textContent = "Safe Read-Only";
+
+      if (data.execution_result) {
+        const res = data.execution_result;
+        document.getElementById('executionStats').textContent = `${res.row_count} rows • ${res.execution_time_ms}ms`;
+
+        // Render Table
+        const header = document.getElementById('tableHeader');
+        const body = document.getElementById('tableBody');
+        header.innerHTML = res.columns.map(c => `<th class="p-3">${c}</th>`).join('');
+        body.innerHTML = res.rows.map(row => `
+          <tr class="hover:bg-slate-800/40 transition">
+            ${res.columns.map(c => `<td class="p-3 text-slate-200">${row[c] !== null ? row[c] : '<span class="text-slate-600">null</span>'}</td>`).join('')}
+          </tr>
+        `).join('');
+
+        // Render Chart
+        if (data.chart_recommendation) {
+          renderChart(data.chart_recommendation, res);
+        }
+      }
+    }
+
+    function renderChart(rec, result) {
+      const placeholder = document.getElementById('chartPlaceholder');
+      const canvas = document.getElementById('analyticsChart');
+      document.getElementById('chartTitle').textContent = rec.title;
+
+      if (!result.rows || result.rows.length === 0 || rec.recommended_type === 'metric_card') {
+        canvas.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+        placeholder.innerHTML = `<div class="text-sm font-bold text-emerald-400">${rec.insights}</div>`;
+        return;
+      }
+
+      placeholder.classList.add('hidden');
+      canvas.classList.remove('hidden');
+
+      const labels = result.rows.map(r => r[rec.x_axis_column] || 'Unknown');
+      const values = result.rows.map(r => r[rec.y_axis_column] || 0);
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      const ctx = canvas.getContext('2d');
+      const chartType = (rec.recommended_type === 'doughnut') ? 'doughnut' : 'bar';
+
+      chartInstance = new Chart(ctx, {
+        type: chartType,
+        data: {
+          labels: labels,
+          datasets: [{
+            label: rec.y_axis_column || 'Value',
+            data: values,
+            backgroundColor: [
+              '#10b981', '#6366f1', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'
+            ],
+            borderColor: '#0f172a',
+            borderWidth: 1.5,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: (chartType === 'doughnut'),
+              labels: { color: '#94a3b8', font: { size: 10 } }
+            }
+          },
+          scales: chartType === 'bar' ? {
+            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#1e293b' } }
+          } : {}
+        }
+      });
+    }
+  </script>
+</body>
+</html>
+
